@@ -1,0 +1,1 @@
+Esta carpeta debe contener imágenes, íconos, scripts u otros recursos estáticos del plugin. 
