@@ -1,1 +1,0 @@
-Esta carpeta debe contener los archivos de traducción (.pot, .po, .mo) para internacionalización del plugin. 

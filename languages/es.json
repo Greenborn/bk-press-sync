@@ -1,0 +1,23 @@
+{
+    "versiones_registradas": "Versiones registradas",
+    "version": "Versión",
+    "fecha_hora": "Fecha y hora",
+    "usuario": "Usuario",
+    "detalle": "Detalle",
+    "ver_detalle": "Ver detalle",
+    "detalle_version": "Detalle de la versión",
+    "tabla": "Tabla",
+    "operacion": "Operación",
+    "datos_anteriores": "Datos anteriores",
+    "datos_nuevos": "Datos nuevos",
+    "cerrar": "Cerrar",
+    "exportar_json": "Exportar JSON",
+    "configuracion": "Configuración de BkSyncGreen",
+    "registros_pagina": "Registros por página",
+    "registros_pagina_desc": "Número de versiones a mostrar por página en la tabla (1-1000).",
+    "idioma": "Idioma",
+    "idioma_desc": "Idioma para la interfaz del plugin.",
+    "guardar_config": "Guardar configuración",
+    "config_guardada": "Configuración guardada correctamente.",
+    "error_registros": "El número de registros por página debe estar entre 1 y 1000."
+} 

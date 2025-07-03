@@ -1,0 +1,23 @@
+{
+    "versiones_registradas": "Registered versions",
+    "version": "Version",
+    "fecha_hora": "Date and time",
+    "usuario": "User",
+    "detalle": "Detail",
+    "ver_detalle": "View detail",
+    "detalle_version": "Version detail",
+    "tabla": "Table",
+    "operacion": "Operation",
+    "datos_anteriores": "Previous data",
+    "datos_nuevos": "New data",
+    "cerrar": "Close",
+    "exportar_json": "Export JSON",
+    "configuracion": "BkSyncGreen Configuration",
+    "registros_pagina": "Records per page",
+    "registros_pagina_desc": "Number of versions to show per page in the table (1-1000).",
+    "idioma": "Language",
+    "idioma_desc": "Language for the plugin interface.",
+    "guardar_config": "Save configuration",
+    "config_guardada": "Configuration saved successfully.",
+    "error_registros": "The number of records per page must be between 1 and 1000."
+} 
