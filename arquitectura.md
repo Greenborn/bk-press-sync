@@ -1,104 +1,234 @@
-# Arquitectura básica de un plugin para WordPress
+# Arquitectura del Plugin BkSyncGreen
 
-Este documento describe la estructura y los componentes esenciales de BkSyncGreen, un plugin moderno para la última versión de WordPress cuyo objetivo es el versionado de los cambios realizados en todas las tablas existentes en la instalación de WordPress.
+## Descripción General
 
-## 1. Estructura de archivos y carpetas
+BkSyncGreen es un plugin de WordPress que implementa un sistema de versionado de base de datos similar a Git, permitiendo rastrear todos los cambios realizados en las tablas de WordPress y agruparlos en commits y versiones.
 
-Un plugin típico de WordPress debe tener la siguiente estructura mínima:
+## Estructura Jerárquica
+
+El sistema implementa una jerarquía de tres niveles:
+
+### 1. Versiones (Nivel Superior)
+- **Propósito**: Agrupan commits relacionados en una versión específica del sistema
+- **Estado**: `open` (abierta) o `closed` (cerrada)
+- **Campos principales**:
+  - `id`: Identificador único
+  - `nombre`: Nombre de la versión (ej: "v1.0.0", "Desarrollo")
+  - `descripcion`: Descripción de la versión
+  - `estado`: Estado actual (open/closed)
+  - `usuario_id`: Usuario que creó la versión
+  - `fecha_creacion`: Fecha de creación
+  - `fecha_version`: Fecha de cierre (cuando se cierra)
+
+### 2. Commits (Nivel Medio)
+- **Propósito**: Agrupan cambios individuales con una descripción común
+- **Estado**: `pending` (pendiente) o `committed` (confirmado)
+- **Campos principales**:
+  - `id`: Identificador único
+  - `id_version`: Referencia a la versión padre
+  - `descripcion`: Descripción del commit
+  - `estado`: Estado actual (pending/committed)
+  - `usuario_id`: Usuario que creó el commit
+  - `fecha_creacion`: Fecha de creación
+  - `fecha_commit`: Fecha de confirmación
+
+### 3. Cambios (Nivel Inferior)
+- **Propósito**: Registros individuales de cambios en la base de datos
+- **Tipos**: `insert`, `update`, `delete`
+- **Campos principales**:
+  - `id`: Identificador único
+  - `id_commit`: Referencia al commit padre
+  - `tabla`: Tabla afectada
+  - `operacion`: Tipo de operación
+  - `datos_anteriores`: Datos antes del cambio
+  - `datos_nuevos`: Datos después del cambio
+  - `usuario_id`: Usuario que realizó el cambio
+  - `fecha`: Fecha del cambio
+
+## Estructura de Archivos
 
 ```
-bksyncgreen/
-├── bksyncgreen.php           # Archivo principal del plugin
-├── readme.txt               # Descripción y documentación básica
-├── assets/                  # Imágenes, íconos, scripts, etc.
-├── includes/                # Archivos PHP auxiliares (clases, funciones)
-│   └── bksyncgreen-ejemplo.php
-├── languages/               # Archivos de traducción (.pot, .po, .mo)
-├── admin/                   # Archivos específicos para el panel de administración
-│   └── bksyncgreen-admin.php
-├── public/                  # Archivos para la parte pública (frontend)
-└── uninstall.php            # Script para desinstalación limpia
+bk-press-sync/
+├── bksyncgreen.php                 # Archivo principal del plugin
+├── includes/
+│   └── crear_tabla_versionado.php  # Script de creación de tablas
+├── admin/
+│   └── bksyncgreen-admin.php       # Interfaz de administración
+├── languages/
+│   ├── bksyncgreen-es_ES.po        # Traducciones en español
+│   ├── bksyncgreen-en_US.po        # Traducciones en inglés
+│   └── bksyncgreen-fr_FR.po        # Traducciones en francés
+└── readme.txt                      # Documentación del plugin
 ```
 
-## 2. Archivo principal del plugin
+## Base de Datos
 
-- Debe tener el encabezado estándar de WordPress con nombre, descripción, versión, autor, etc.
-- Es el punto de entrada donde se cargan el resto de los componentes.
-
-## 3. Carga de dependencias
-
-- Utilizar `require_once` o un autoloader para cargar archivos de la carpeta `includes/`.
-- Separar la lógica de administración (`admin/`) y la lógica pública (`public/`).
-
-## 4. Ganchos (Hooks)
-
-- Utilizar acciones (`add_action`) y filtros (`add_filter`) para integrarse con el ciclo de vida de WordPress.
-- Registrar funciones para inicialización, activación y desactivación del plugin (`register_activation_hook`, `register_deactivation_hook`).
-
-## 5. Internacionalización (i18n)
-
-- Preparar el plugin para traducción usando funciones como `__()` y `_e()`.
-- Incluir archivos de idioma en la carpeta `languages/`.
-
-## 6. Seguridad
-
-- Validar y sanitizar todas las entradas de usuario.
-- Utilizar `nonce` para formularios y acciones sensibles.
-- Respetar las capacidades de usuario (`current_user_can`).
-
-## 7. Buenas prácticas
-
-- Seguir el estándar de codificación de WordPress.
-- Documentar el código y las funciones principales.
-- Evitar conflictos de nombres usando prefijos únicos.
-
-## 8. Ejemplo de encabezado de plugin
-
-```php
-<?php
-/*
-Plugin Name: Mi Plugin Ejemplo
-Description: Un ejemplo de plugin para WordPress.
-Version: 1.0.0
-Author: Tu Nombre
-*/
-```
-
-## 9. Estrategia para el versionado de cambios en tablas de WordPress
-
-El objetivo principal de BkSyncGreen es registrar y versionar todos los cambios (inserciones, actualizaciones y eliminaciones) realizados en las tablas de la base de datos de WordPress. A continuación se describen las estrategias y consideraciones técnicas para lograrlo:
-
-### a) Detección de cambios
-- Utilizar los hooks de WordPress (`save_post`, `deleted_post`, `updated_post_meta`, etc.) para detectar cambios en las tablas estándar (posts, users, options, etc.).
-- Para tablas personalizadas o cambios directos en la base de datos, considerar el uso de triggers a nivel de base de datos (requiere acceso y permisos en MySQL) o el monitoreo de queries mediante filtros como `query` o `dbdelta`.
-
-### b) Registro de versiones
-- Crear una tabla propia del plugin (por ejemplo, `wp_bksyncgreen_versions`) donde se almacenen los cambios detectados.
-- Guardar información relevante: tabla afectada, tipo de operación (insert/update/delete), datos anteriores y nuevos, usuario responsable, fecha y hora.
-
-### c) Restauración y auditoría
-- Implementar funciones para consultar el historial de cambios por tabla, registro o usuario.
-- Permitir la restauración de versiones anteriores de un registro si es necesario.
-
-### d) Consideraciones de rendimiento y seguridad
-- Optimizar el almacenamiento para evitar crecimiento excesivo de la tabla de versiones.
-- Asegurar que solo usuarios autorizados puedan acceder o restaurar versiones.
-- Cumplir con la normativa de protección de datos (GDPR, LOPD, etc.) si se almacenan datos sensibles.
-
-### e) Ejemplo de estructura de tabla de versiones
-
+### Tabla: `wp_bksyncgreen_versions`
 ```sql
 CREATE TABLE wp_bksyncgreen_versions (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tabla VARCHAR(255) NOT NULL,
-    operacion ENUM('insert','update','delete') NOT NULL,
-    datos_anteriores LONGTEXT,
-    datos_nuevos LONGTEXT,
-    usuario_id BIGINT UNSIGNED,
-    fecha DATETIME NOT NULL
+    nombre VARCHAR(255) NOT NULL,
+    descripcion TEXT,
+    estado ENUM('open','closed') DEFAULT 'open',
+    usuario_id BIGINT UNSIGNED NOT NULL,
+    fecha_creacion DATETIME NOT NULL,
+    fecha_version DATETIME NULL,
+    INDEX idx_usuario (usuario_id),
+    INDEX idx_estado (estado),
+    INDEX idx_fecha_creacion (fecha_creacion)
 );
 ```
 
----
+### Tabla: `wp_bksyncgreen_commits`
+```sql
+CREATE TABLE wp_bksyncgreen_commits (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_version BIGINT UNSIGNED NULL,
+    descripcion TEXT NOT NULL,
+    estado ENUM('pending','committed') DEFAULT 'pending',
+    usuario_id BIGINT UNSIGNED NOT NULL,
+    fecha_creacion DATETIME NOT NULL,
+    fecha_commit DATETIME NULL,
+    INDEX idx_version (id_version),
+    INDEX idx_usuario (usuario_id),
+    INDEX idx_estado (estado),
+    INDEX idx_fecha_creacion (fecha_creacion),
+    FOREIGN KEY (id_version) REFERENCES wp_bksyncgreen_versions(id) ON DELETE SET NULL
+);
+```
 
-Esta estrategia puede adaptarse y ampliarse según las necesidades del proyecto y la complejidad de la instalación de WordPress. 
+### Tabla: `wp_bksyncgreen_changes`
+```sql
+CREATE TABLE wp_bksyncgreen_changes (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_commit BIGINT UNSIGNED NOT NULL,
+    tabla VARCHAR(100) NOT NULL,
+    operacion ENUM('insert','update','delete') NOT NULL,
+    datos_anteriores LONGTEXT,
+    datos_nuevos LONGTEXT,
+    usuario_id BIGINT UNSIGNED NOT NULL,
+    fecha DATETIME NOT NULL,
+    INDEX idx_commit (id_commit),
+    INDEX idx_tabla (tabla),
+    INDEX idx_usuario (usuario_id),
+    INDEX idx_fecha (fecha),
+    FOREIGN KEY (id_commit) REFERENCES wp_bksyncgreen_commits(id) ON DELETE CASCADE
+);
+```
+
+## Funcionalidades Principales
+
+### 1. Registro Automático de Cambios
+- **Hooks implementados**:
+  - `save_post`: Cambios en posts/páginas
+  - `profile_update`: Cambios en usuarios
+  - `updated_option`: Cambios en opciones
+
+### 2. Gestión de Versiones
+- Crear nuevas versiones
+- Cerrar versiones existentes
+- Ver versiones con sus commits asociados
+- Revertir versiones completas
+
+### 3. Gestión de Commits
+- Crear commits con descripción
+- Confirmar commits pendientes
+- Ver commits de una versión
+- Revertir commits individuales
+
+### 4. Visualización de Cambios
+- Ver cambios de un commit
+- Comparar diferencias
+- Exportar datos en JSON
+- Filtros avanzados
+
+### 5. Estadísticas
+- Gráficos de actividad
+- Commits por usuario
+- Cambios por tabla
+- Operaciones por tipo
+
+## Flujo de Trabajo
+
+1. **Activación del Plugin**:
+   - Se crean las tres tablas en la base de datos
+   - Se crea automáticamente una versión inicial abierta
+   - Se crea un commit pendiente inicial
+
+2. **Registro de Cambios**:
+   - Los cambios se registran automáticamente en el commit pendiente
+   - Se evitan duplicados comparando datos
+
+3. **Creación de Commits**:
+   - El usuario puede crear commits con descripción
+   - Los commits se asocian a la versión abierta actual
+
+4. **Gestión de Versiones**:
+   - Se pueden crear nuevas versiones
+   - Al crear una nueva versión, se cierra la anterior
+   - Las versiones pueden contener múltiples commits
+
+5. **Revertir Cambios**:
+   - Se pueden revertir commits individuales
+   - Se pueden revertir versiones completas
+   - Las reversiones se ejecutan en orden inverso
+
+## Interfaz de Administración
+
+### Páginas Principales:
+1. **Versiones**: Muestra todas las versiones con sus commits
+2. **Commits**: Gestión de commits y cambios pendientes
+3. **Estadísticas**: Dashboard con gráficos y métricas
+4. **Configuración**: Ajustes del plugin
+
+### Características de la UI:
+- Bootstrap 5 para el diseño
+- DataTables para tablas interactivas
+- Chart.js para gráficos
+- Modales para detalles
+- Filtros avanzados
+- Exportación de datos
+
+## Seguridad
+
+- Verificación de nonces en todas las operaciones AJAX
+- Sanitización de datos de entrada
+- Validación de permisos de usuario
+- Transacciones de base de datos para operaciones críticas
+
+## Internacionalización
+
+- Soporte para múltiples idiomas
+- Archivos .po/.mo para traducciones
+- Textos dinámicos en la interfaz
+- Idiomas soportados: Español, Inglés, Francés
+
+## Instalación y Configuración
+
+1. Subir el plugin al directorio `/wp-content/plugins/`
+2. Activar el plugin desde el panel de administración
+3. Las tablas se crean automáticamente
+4. Configurar opciones en "BkSyncGreen > Configuración"
+
+## Uso Recomendado
+
+1. **Desarrollo**: Mantener una versión "Desarrollo" abierta
+2. **Testing**: Crear versiones para cada fase de pruebas
+3. **Producción**: Crear versiones estables para releases
+4. **Mantenimiento**: Usar commits descriptivos para cambios
+
+## Limitaciones
+
+- Solo versiona tablas principales de WordPress
+- No versiona archivos (solo base de datos)
+- Requiere permisos de administrador
+- Puede generar archivos grandes con muchos cambios
+
+## Futuras Mejoras
+
+- Versionado de archivos
+- Integración con Git
+- API REST para integraciones externas
+- Backup automático antes de reversiones
+- Notificaciones por email
+- Integración con sistemas de tickets 

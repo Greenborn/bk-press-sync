@@ -1,222 +1,359 @@
 <?php
 // Archivo de administración para BkSyncGreen
-// Autor: Greenborn
 
-// Agregar menú y submenú en el admin
+// Agregar menú y submenús
 add_action('admin_menu', 'bksyncgreen_admin_menu');
 function bksyncgreen_admin_menu() {
     add_menu_page(
-        'BkSyncGreen', // Título de la página
-        'BkSyncGreen', // Título del menú
-        'manage_options', // Capacidad
-        'bksyncgreen', // Slug
-        'bksyncgreen_versiones_page', // Función de contenido
-        'dashicons-backup', // Icono
-        80 // Posición
-    );
-    add_submenu_page(
-        'bksyncgreen',
-        'Versiones',
-        'Versiones',
+        'BkSyncGreen',
+        'BkSyncGreen',
         'manage_options',
         'bksyncgreen',
-        'bksyncgreen_versiones_page'
+        'bksyncgreen_versiones_page',
+        'dashicons-backup',
+        80
     );
-    add_submenu_page(
-        'bksyncgreen',
-        'Configuración',
-        'Configuración',
-        'manage_options',
-        'bksyncgreen-config',
-        'bksyncgreen_config_page'
-    );
-}
-
-// Registrar y cargar Bootstrap solo en las páginas del plugin
-add_action('admin_enqueue_scripts', 'bksyncgreen_cargar_bootstrap_admin');
-function bksyncgreen_cargar_bootstrap_admin($hook) {
-    // Solo cargar en las páginas del plugin
-    if (isset($_GET['page']) && ($_GET['page'] === 'bksyncgreen' || $_GET['page'] === 'bksyncgreen-config')) {
-        // Bootstrap 5 CDN
-        wp_enqueue_style('bksyncgreen-bootstrap-css', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css');
-        wp_enqueue_script('bksyncgreen-bootstrap-js', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js', array('jquery'), null, true);
-    }
-}
-
-// Registrar y cargar DataTables además de Bootstrap
-add_action('admin_enqueue_scripts', 'bksyncgreen_cargar_datatables_admin');
-function bksyncgreen_cargar_datatables_admin($hook) {
-    if (isset($_GET['page']) && $_GET['page'] === 'bksyncgreen') {
-        // Bootstrap ya se carga en el otro hook
-        wp_enqueue_style('bksyncgreen-datatables-css', 'https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css');
-        wp_enqueue_script('bksyncgreen-datatables-js', 'https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js', array('jquery'), null, true);
-        wp_enqueue_script('bksyncgreen-datatables-bs-js', 'https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js', array('bksyncgreen-datatables-js'), null, true);
-    }
-}
-
-// Función para obtener texto traducido según el idioma configurado
-function bksyncgreen_get_text($key) {
-    $idioma = get_option('bksyncgreen_idioma', 'es');
-    
-    // Ruta al archivo de traducción
-    $archivo_traduccion = plugin_dir_path(__FILE__) . '../languages/' . $idioma . '.json';
-    
-    // Si no existe el archivo para el idioma seleccionado, usar español por defecto
-    if (!file_exists($archivo_traduccion)) {
-        $idioma = 'es';
-        $archivo_traduccion = plugin_dir_path(__FILE__) . '../languages/' . $idioma . '.json';
-    }
-    
-    // Cargar las traducciones desde el archivo JSON
-    if (file_exists($archivo_traduccion)) {
-        $contenido = file_get_contents($archivo_traduccion);
-        $traducciones = json_decode($contenido, true);
-        
-        if (isset($traducciones[$key])) {
-            return $traducciones[$key];
-        }
-    }
-    
-    // Si no se encuentra la traducción, devolver la clave
-    return $key;
-}
-
-// Mostrar la tabla de versiones con DataTables y modal para detalles
-function bksyncgreen_versiones_page() {
-    global $wpdb;
-    $tabla_versionado = $wpdb->prefix . 'bksyncgreen_versions';
-    $registros_por_pagina = get_option('bksyncgreen_registros_por_pagina', 100);
-    $resultados = $wpdb->get_results("SELECT * FROM $tabla_versionado ORDER BY fecha DESC LIMIT $registros_por_pagina");
-    echo '<div class="wrap">';
-    echo '<h1>' . bksyncgreen_get_text('versiones_registradas') . '</h1>';
-    echo '<button id="bksyncgreen-export-json" class="btn btn-success mb-3">' . bksyncgreen_get_text('exportar_json') . '</button>';
-    echo '<table id="bksyncgreen-table" class="table table-striped table-bordered table-hover table-sm">';
-    echo '<thead><tr><th>' . bksyncgreen_get_text('version') . '</th><th>' . bksyncgreen_get_text('fecha_hora') . '</th><th>' . bksyncgreen_get_text('usuario') . '</th><th>' . bksyncgreen_get_text('detalle') . '</th></tr></thead>';
-    echo '<tbody>';
-    $version = count($resultados);
-    foreach ($resultados as $fila) {
-        $usuario = $fila->usuario_id ? get_userdata($fila->usuario_id) : null;
-        $nombre_usuario = $usuario ? esc_html($usuario->user_login) : '-';
-        $detalle_id = 'detalle_' . esc_attr($fila->id);
-        echo '<tr>';
-        echo '<td>' . $version-- . '</td>';
-        echo '<td>' . esc_html($fila->fecha) . '</td>';
-        echo '<td>' . $nombre_usuario . '</td>';
-        echo '<td><button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#' . $detalle_id . '">' . bksyncgreen_get_text('ver_detalle') . '</button>';
-        // Modal Bootstrap para detalle
-        echo '<div class="modal fade" id="' . $detalle_id . '" tabindex="-1" aria-labelledby="' . $detalle_id . 'Label" aria-hidden="true">';
-        echo '  <div class="modal-dialog modal-lg">';
-        echo '    <div class="modal-content">';
-        echo '      <div class="modal-header">';
-        echo '        <h5 class="modal-title" id="' . $detalle_id . 'Label">' . bksyncgreen_get_text('detalle_version') . '</h5>';
-        echo '        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="' . bksyncgreen_get_text('cerrar') . '"></button>';
-        echo '      </div>';
-        echo '      <div class="modal-body">';
-        echo '        <strong>' . bksyncgreen_get_text('tabla') . ':</strong> ' . esc_html($fila->tabla) . '<br>';
-        echo '        <strong>' . bksyncgreen_get_text('operacion') . ':</strong> ' . esc_html($fila->operacion) . '<br>';
-        echo '        <strong>' . bksyncgreen_get_text('datos_anteriores') . ':</strong><br><textarea readonly style="width:100%;height:80px">' . esc_textarea($fila->datos_anteriores) . '</textarea><br>';
-        echo '        <strong>' . bksyncgreen_get_text('datos_nuevos') . ':</strong><br><textarea readonly style="width:100%;height:80px">' . esc_textarea($fila->datos_nuevos) . '</textarea>';
-        echo '      </div>';
-        echo '      <div class="modal-footer">';
-        echo '        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">' . bksyncgreen_get_text('cerrar') . '</button>';
-        echo '      </div>';
-        echo '    </div>';
-        echo '  </div>';
-        echo '</div>';
-        echo '</td>';
-        echo '</tr>';
-    }
-    echo '</tbody></table>';
-    echo '</div>';
-    // Script para inicializar DataTables y exportar JSON
-    echo '<script>
-    jQuery(document).ready(function($){
-        var table = $("#bksyncgreen-table").DataTable({"order": [[0, "desc"]]});
-        $("#bksyncgreen-export-json").on("click", function(){
-            var data = table.rows({search: "applied"}).data().toArray();
-            // Convertir a objeto con nombres de columnas
-            var headers = [];
-            $("#bksyncgreen-table thead th").each(function(){headers.push($(this).text());});
-            var jsonData = data.map(function(row){
-                var obj = {};
-                for(var i=0; i<headers.length; i++){
-                    // Eliminar HTML
-                    obj[headers[i]] = row[i].replace(/<[^>]+>/g, "");
-                }
-                return obj;
-            });
-            var blob = new Blob([JSON.stringify(jsonData, null, 2)], {type: "application/json"});
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement("a");
-            a.href = url;
-            a.download = "bksyncgreen_versiones.json";
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        });
-    });
-    </script>';
+    add_submenu_page('bksyncgreen', 'Versiones', 'Versiones', 'manage_options', 'bksyncgreen', 'bksyncgreen_versiones_page');
+    add_submenu_page('bksyncgreen', 'Commits', 'Commits', 'manage_options', 'bksyncgreen-commits', 'bksyncgreen_commits_page');
+    add_submenu_page('bksyncgreen', 'Configuración', 'Configuración', 'manage_options', 'bksyncgreen-config', 'bksyncgreen_config_page');
 }
 
 // Página de configuración
 function bksyncgreen_config_page() {
-    // Guardar configuración si se envió el formulario
-    if (isset($_POST['bksyncgreen_save_config'])) {
-        if (wp_verify_nonce($_POST['bksyncgreen_nonce'], 'bksyncgreen_config')) {
-            $registros_por_pagina = intval($_POST['registros_por_pagina']);
-            $idioma = sanitize_text_field($_POST['idioma']);
-            
-            if ($registros_por_pagina > 0 && $registros_por_pagina <= 1000) {
-                update_option('bksyncgreen_registros_por_pagina', $registros_por_pagina);
-                update_option('bksyncgreen_idioma', $idioma);
-                echo '<div class="notice notice-success"><p>' . bksyncgreen_get_text('config_guardada') . '</p></div>';
+    // Guardar idioma
+    if (isset($_POST['bksyncgreen_save_config']) && check_admin_referer('bksyncgreen_config')) {
+        $idioma = sanitize_text_field($_POST['idioma']);
+        update_option('bksyncgreen_idioma', $idioma);
+        echo '<div class="notice notice-success is-dismissible"><p>Idioma actualizado correctamente.</p></div>';
+    }
+    
+    // Reiniciar repositorio
+    if (isset($_POST['bksyncgreen_reiniciar_repositorio']) && check_admin_referer('bksyncgreen_reiniciar')) {
+        if (!empty($_POST['confirmacion_reinicio']) && $_POST['confirmacion_reinicio'] === 'REINICIAR') {
+            $ok = bksyncgreen_reiniciar_repositorio();
+            if ($ok) {
+                echo '<div class="notice notice-success is-dismissible"><p>Repositorio reiniciado correctamente.</p></div>';
             } else {
-                echo '<div class="notice notice-error"><p>' . bksyncgreen_get_text('error_registros') . '</p></div>';
+                echo '<div class="notice notice-error is-dismissible"><p>Error al reiniciar el repositorio.</p></div>';
             }
+        } else {
+            echo '<div class="notice notice-error is-dismissible"><p>Debes escribir REINICIAR para confirmar.</p></div>';
         }
     }
     
-    $registros_actuales = get_option('bksyncgreen_registros_por_pagina', 100);
     $idioma_actual = get_option('bksyncgreen_idioma', 'es');
-    
-    $idiomas_disponibles = array(
+    $idiomas = array(
         'es' => 'Español',
         'en' => 'English',
         'fr' => 'Français',
         'de' => 'Deutsch',
         'it' => 'Italiano',
-        'pt' => 'Português',
-        'ru' => 'Русский',
-        'zh' => '中文',
-        'ja' => '日本語',
-        'ko' => '한국어'
+        'pt' => 'Português'
     );
     
     echo '<div class="wrap">';
-    echo '<h1>' . bksyncgreen_get_text('configuracion') . '</h1>';
-    echo '<form method="post" action="">';
-    wp_nonce_field('bksyncgreen_config', 'bksyncgreen_nonce');
+    echo '<h1>Configuración de BkSyncGreen</h1>';
+    echo '<p>Configura las opciones básicas del plugin de versionado de base de datos.</p>';
+    
+    // Formulario de configuración
+    echo '<div class="card" style="max-width: 600px; margin-bottom: 30px;">';
+    echo '<h2>Configuración General</h2>';
+    echo '<form method="post">';
+    wp_nonce_field('bksyncgreen_config');
     echo '<table class="form-table">';
     echo '<tr>';
-    echo '<th scope="row"><label for="registros_por_pagina">' . bksyncgreen_get_text('registros_pagina') . '</label></th>';
-    echo '<td><input type="number" id="registros_por_pagina" name="registros_por_pagina" value="' . esc_attr($registros_actuales) . '" min="1" max="1000" class="regular-text" />';
-    echo '<p class="description">' . bksyncgreen_get_text('registros_pagina_desc') . '</p></td>';
-    echo '</tr>';
-    echo '<tr>';
-    echo '<th scope="row"><label for="idioma">' . bksyncgreen_get_text('idioma') . '</label></th>';
+    echo '<th scope="row"><label for="idioma">Idioma de la interfaz</label></th>';
     echo '<td><select id="idioma" name="idioma" class="regular-text">';
-    foreach ($idiomas_disponibles as $codigo => $nombre) {
-        $selected = ($codigo === $idioma_actual) ? 'selected' : '';
-        echo '<option value="' . esc_attr($codigo) . '" ' . $selected . '>' . esc_html($nombre) . '</option>';
+    foreach ($idiomas as $codigo => $nombre) {
+        $selected = ($codigo === $idioma_actual) ? ' selected' : '';
+        echo '<option value="' . esc_attr($codigo) . '"' . $selected . '>' . esc_html($nombre) . '</option>';
     }
     echo '</select>';
-    echo '<p class="description">' . bksyncgreen_get_text('idioma_desc') . '</p></td>';
+    echo '<p class="description">Selecciona el idioma para la interfaz de administración del plugin.</p></td>';
     echo '</tr>';
     echo '</table>';
-    echo '<p class="submit">';
-    echo '<input type="submit" name="bksyncgreen_save_config" class="button-primary" value="' . bksyncgreen_get_text('guardar_config') . '" />';
-    echo '</p>';
+    echo '<p class="submit"><input type="submit" name="bksyncgreen_save_config" class="button-primary" value="Guardar configuración"></p>';
     echo '</form>';
+    echo '</div>';
+    
+    // Formulario de reinicio
+    echo '<div class="card" style="max-width: 600px; margin-bottom: 30px;">';
+    echo '<h2>Reiniciar Repositorio</h2>';
+    echo '<div class="notice notice-warning">';
+    echo '<p><strong>⚠️ ADVERTENCIA:</strong> Esta acción eliminará permanentemente todas las versiones, commits y cambios registrados en el sistema. Esta acción no se puede deshacer.</p>';
+    echo '</div>';
+    echo '<form method="post" onsubmit="return confirm(\'¿Estás completamente seguro de que quieres reiniciar el repositorio? Esta acción eliminará permanentemente todos los datos y no se puede deshacer.\')">';
+    wp_nonce_field('bksyncgreen_reiniciar');
+    echo '<table class="form-table">';
+    echo '<tr>';
+    echo '<th scope="row"><label for="confirmacion_reinicio">Confirmación</label></th>';
+    echo '<td>';
+    echo '<input type="text" id="confirmacion_reinicio" name="confirmacion_reinicio" class="regular-text" placeholder="Escribe REINICIAR para confirmar" />';
+    echo '<p class="description">Para confirmar que quieres reiniciar el repositorio, escribe "REINICIAR" en el campo de arriba.</p>';
+    echo '</td>';
+    echo '</tr>';
+    echo '</table>';
+    echo '<p class="submit"><input type="submit" name="bksyncgreen_reiniciar_repositorio" class="button button-danger" value="Reiniciar Repositorio" style="background-color: #dc3545; border-color: #dc3545; color: white;"></p>';
+    echo '</form>';
+    echo '</div>';
+    
+    // Información del repositorio
+    global $wpdb;
+    $tabla_versiones = $wpdb->prefix . 'bksyncgreen_versions';
+    $tabla_commits = $wpdb->prefix . 'bksyncgreen_commits';
+    $tabla_cambios = $wpdb->prefix . 'bksyncgreen_changes';
+    
+    $total_versiones = $wpdb->get_var("SELECT COUNT(*) FROM $tabla_versiones");
+    $total_commits = $wpdb->get_var("SELECT COUNT(*) FROM $tabla_commits");
+    $total_cambios = $wpdb->get_var("SELECT COUNT(*) FROM $tabla_cambios");
+    
+    echo '<div class="card" style="max-width: 600px;">';
+    echo '<h2>Información del Repositorio</h2>';
+    echo '<table class="form-table">';
+    echo '<tr>';
+    echo '<th scope="row">Versiones registradas</th>';
+    echo '<td>' . $total_versiones . '</td>';
+    echo '</tr>';
+    echo '<tr>';
+    echo '<th scope="row">Commits registrados</th>';
+    echo '<td>' . $total_commits . '</td>';
+    echo '</tr>';
+    echo '<tr>';
+    echo '<th scope="row">Cambios registrados</th>';
+    echo '<td>' . $total_cambios . '</td>';
+    echo '</tr>';
+    echo '</table>';
+    echo '</div>';
+    
+    echo '</div>';
+    
+    // Estilos CSS
+    echo '<style>
+    .button-danger {
+        background-color: #dc3545 !important;
+        border-color: #dc3545 !important;
+        color: white !important;
+    }
+    .button-danger:hover {
+        background-color: #c82333 !important;
+        border-color: #bd2130 !important;
+        color: white !important;
+    }
+    .notice-warning {
+        border-left-color: #ffc107;
+        background-color: #fff3cd;
+    }
+    .card {
+        background: white;
+        border: 1px solid #ccd0d4;
+        border-radius: 4px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 1px rgba(0,0,0,.04);
+    }
+    </style>';
+}
+
+// Página de versiones
+function bksyncgreen_versiones_page() {
+    global $wpdb;
+    
+    // Procesar creación de versión
+    if (isset($_POST['bksyncgreen_crear_version']) && isset($_POST['nombre_version'])) {
+        if (check_admin_referer('bksyncgreen_version')) {
+            $nombre = sanitize_text_field($_POST['nombre_version']);
+            $descripcion = sanitize_textarea_field($_POST['descripcion_version']);
+            
+            if (!empty($nombre)) {
+                $resultado = bksyncgreen_crear_version($nombre, $descripcion);
+                if ($resultado) {
+                    echo '<div class="notice notice-success is-dismissible"><p>Versión "' . esc_html($nombre) . '" creada correctamente.</p></div>';
+                } else {
+                    echo '<div class="notice notice-error is-dismissible"><p>Error al crear la versión.</p></div>';
+                }
+            } else {
+                echo '<div class="notice notice-error is-dismissible"><p>El nombre de la versión no puede estar vacío.</p></div>';
+            }
+        }
+    }
+    
+    $tabla_versiones = $wpdb->prefix . 'bksyncgreen_versions';
+    $tabla_commits = $wpdb->prefix . 'bksyncgreen_commits';
+    $tabla_cambios = $wpdb->prefix . 'bksyncgreen_changes';
+    
+    // Obtener versiones con estadísticas
+    $versiones = $wpdb->get_results("
+        SELECT v.*, 
+               COUNT(DISTINCT c.id) as total_commits,
+               COUNT(ch.id) as total_cambios
+        FROM $tabla_versiones v
+        LEFT JOIN $tabla_commits c ON v.id = c.id_version
+        LEFT JOIN $tabla_cambios ch ON c.id = ch.id_commit
+        GROUP BY v.id
+        ORDER BY v.fecha_creacion DESC
+    ");
+    
+    echo '<div class="wrap">';
+    echo '<h1>Versiones del Sistema</h1>';
+    echo '<p>Las versiones agrupan commits, y los commits agrupan cambios individuales en la base de datos.</p>';
+    
+    // Formulario para crear nueva versión
+    echo '<div class="card" style="max-width: 600px; margin-bottom: 20px;">';
+    echo '<h2>Crear Nueva Versión</h2>';
+    echo '<form method="post">';
+    wp_nonce_field('bksyncgreen_version');
+    echo '<table class="form-table">';
+    echo '<tr>';
+    echo '<th scope="row"><label for="nombre_version">Nombre de la versión</label></th>';
+    echo '<td><input type="text" id="nombre_version" name="nombre_version" class="regular-text" placeholder="Ej: v1.0.0, Desarrollo, Testing" required /></td>';
+    echo '</tr>';
+    echo '<tr>';
+    echo '<th scope="row"><label for="descripcion_version">Descripción</label></th>';
+    echo '<td><textarea id="descripcion_version" name="descripcion_version" rows="3" cols="50" class="regular-text" placeholder="Describe el propósito de esta versión..."></textarea></td>';
+    echo '</tr>';
+    echo '</table>';
+    echo '<p class="submit"><input type="submit" name="bksyncgreen_crear_version" class="button-primary" value="Crear Versión" /></p>';
+    echo '</form>';
+    echo '</div>';
+    
+    // Tabla de versiones
+    if (!empty($versiones)) {
+        echo '<div class="card">';
+        echo '<h2>Versiones Registradas</h2>';
+        echo '<table class="wp-list-table widefat fixed striped">';
+        echo '<thead><tr>';
+        echo '<th>ID</th>';
+        echo '<th>Nombre</th>';
+        echo '<th>Descripción</th>';
+        echo '<th>Estado</th>';
+        echo '<th>Commits</th>';
+        echo '<th>Cambios</th>';
+        echo '<th>Usuario</th>';
+        echo '<th>Fecha Creación</th>';
+        echo '<th>Fecha Versión</th>';
+        echo '</tr></thead>';
+        echo '<tbody>';
+        
+        foreach ($versiones as $version) {
+            $usuario = get_userdata($version->usuario_id);
+            $nombre_usuario = $usuario ? esc_html($usuario->user_login) : 'Usuario eliminado';
+            
+            $estado_clase = $version->estado === 'open' ? 'text-warning' : 'text-success';
+            $estado_texto = $version->estado === 'open' ? 'Abierta' : 'Cerrada';
+            
+            echo '<tr>';
+            echo '<td>' . esc_html($version->id) . '</td>';
+            echo '<td><strong>' . esc_html($version->nombre) . '</strong></td>';
+            echo '<td>' . esc_html($version->descripcion) . '</td>';
+            echo '<td><span class="' . $estado_clase . '">' . esc_html($estado_texto) . '</span></td>';
+            echo '<td>' . esc_html($version->total_commits) . '</td>';
+            echo '<td>' . esc_html($version->total_cambios) . '</td>';
+            echo '<td>' . esc_html($nombre_usuario) . '</td>';
+            echo '<td>' . esc_html($version->fecha_creacion) . '</td>';
+            echo '<td>' . esc_html($version->fecha_version ?: '-') . '</td>';
+            echo '</tr>';
+        }
+        
+        echo '</tbody></table>';
+        echo '</div>';
+    } else {
+        echo '<div class="notice notice-info"><p>No hay versiones registradas.</p></div>';
+    }
+    
+    echo '</div>';
+}
+
+// Página de commits
+function bksyncgreen_commits_page() {
+    global $wpdb;
+    
+    // Procesar creación de commit
+    if (isset($_POST['bksyncgreen_crear_commit']) && isset($_POST['descripcion_commit'])) {
+        if (check_admin_referer('bksyncgreen_commit')) {
+            $descripcion = sanitize_textarea_field($_POST['descripcion_commit']);
+            if (!empty($descripcion)) {
+                $resultado = bksyncgreen_crear_commit($descripcion);
+                if ($resultado) {
+                    echo '<div class="notice notice-success is-dismissible"><p>Commit creado correctamente.</p></div>';
+                } else {
+                    echo '<div class="notice notice-error is-dismissible"><p>Error al crear el commit.</p></div>';
+                }
+            } else {
+                echo '<div class="notice notice-error is-dismissible"><p>La descripción del commit no puede estar vacía.</p></div>';
+            }
+        }
+    }
+    
+    $tabla_commits = $wpdb->prefix . 'bksyncgreen_commits';
+    $tabla_versiones = $wpdb->prefix . 'bksyncgreen_versions';
+    $tabla_cambios = $wpdb->prefix . 'bksyncgreen_changes';
+    
+    // Obtener commits con información
+    $commits = $wpdb->get_results("
+        SELECT c.*, u.user_login, v.nombre as version_nombre,
+               COUNT(ch.id) as num_cambios
+        FROM $tabla_commits c
+        LEFT JOIN {$wpdb->users} u ON c.usuario_id = u.ID
+        LEFT JOIN $tabla_versiones v ON c.id_version = v.id
+        LEFT JOIN $tabla_cambios ch ON c.id = ch.id_commit
+        GROUP BY c.id
+        ORDER BY c.fecha_creacion DESC
+    ");
+    
+    echo '<div class="wrap">';
+    echo '<h1>Gestión de Commits</h1>';
+    echo '<p>Los commits agrupan cambios individuales en la base de datos.</p>';
+    
+    // Formulario para crear commit
+    echo '<div class="card" style="max-width: 600px; margin-bottom: 20px;">';
+    echo '<h2>Crear Nuevo Commit</h2>';
+    echo '<form method="post">';
+    wp_nonce_field('bksyncgreen_commit');
+    echo '<p><label for="descripcion_commit"><strong>Descripción del commit:</strong></label></p>';
+    echo '<p><textarea id="descripcion_commit" name="descripcion_commit" rows="3" cols="50" style="width: 100%;" placeholder="Describe los cambios realizados..."></textarea></p>';
+    echo '<p><input type="submit" name="bksyncgreen_crear_commit" class="button-primary" value="Crear Commit" /></p>';
+    echo '</form>';
+    echo '</div>';
+    
+    // Tabla de commits
+    if (!empty($commits)) {
+        echo '<div class="card">';
+        echo '<h2>Commits Registrados</h2>';
+        echo '<table class="wp-list-table widefat fixed striped">';
+        echo '<thead><tr>';
+        echo '<th>ID</th>';
+        echo '<th>Versión</th>';
+        echo '<th>Descripción</th>';
+        echo '<th>Estado</th>';
+        echo '<th>Cambios</th>';
+        echo '<th>Usuario</th>';
+        echo '<th>Fecha Creación</th>';
+        echo '<th>Fecha Commit</th>';
+        echo '</tr></thead>';
+        echo '<tbody>';
+        
+        foreach ($commits as $commit) {
+            $estado_class = $commit->estado === 'pending' ? 'text-warning' : 'text-success';
+            $estado_text = $commit->estado === 'pending' ? 'Pendiente' : 'Confirmado';
+            $usuario_nombre = $commit->user_login ?: 'Usuario eliminado';
+            
+            echo '<tr>';
+            echo '<td>' . esc_html($commit->id) . '</td>';
+            echo '<td>' . esc_html($commit->version_nombre ?: 'Sin versión') . '</td>';
+            echo '<td>' . esc_html($commit->descripcion) . '</td>';
+            echo '<td><span class="' . $estado_class . '">' . $estado_text . '</span></td>';
+            echo '<td>' . esc_html($commit->num_cambios) . '</td>';
+            echo '<td>' . esc_html($usuario_nombre) . '</td>';
+            echo '<td>' . esc_html($commit->fecha_creacion) . '</td>';
+            echo '<td>' . esc_html($commit->fecha_commit ?: '-') . '</td>';
+            echo '</tr>';
+        }
+        
+        echo '</tbody></table>';
+        echo '</div>';
+    } else {
+        echo '<div class="notice notice-info"><p>No hay commits registrados.</p></div>';
+    }
+    
     echo '</div>';
 } 
